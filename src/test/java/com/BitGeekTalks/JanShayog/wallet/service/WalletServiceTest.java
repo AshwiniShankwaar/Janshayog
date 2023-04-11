@@ -41,16 +41,21 @@ class WalletServiceTest {
     @Test
     void testWalletTransaction(){
         Wallet wallet = walletService.walletByAccountId(1);
-        wallet = walletService.performTransaction(wallet,20.0,"test",true);
+        System.out.println(wallet);
+        wallet = walletService.performTransaction(wallet,10.0,"test",false);
         System.out.println(wallet);
     }
 
+//    @Test
+//    void getAllTransactions(){
+//        List<Transaction> transactions = walletService.getAllTransactions(1);
+//        Iterator i = transactions.iterator();
+//        while(i.hasNext()){
+//            System.out.println(i.next());
+//        }
+//    }
     @Test
-    void getAllTransactions(){
-        List<Transaction> transactions = walletService.getAllTransactions(1);
-        Iterator i = transactions.iterator();
-        while(i.hasNext()){
-            System.out.println(i.next());
-        }
+    void testWalletFetch(){
+        System.out.println(walletService.walletByAccountId(1));
     }
 }

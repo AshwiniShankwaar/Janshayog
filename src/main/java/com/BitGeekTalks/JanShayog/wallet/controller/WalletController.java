@@ -16,6 +16,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/wallet")
+@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
 public class WalletController {
     @Autowired
     WalletService walletService;
@@ -32,7 +33,7 @@ public class WalletController {
                 transactionRequest.getReason(),
                 transactionRequest.getIsDebit());
         if(wallet != null){
-            System.out.println(wallet);
+            //System.out.println(wallet);
             return ResponseEntity
                     .status(HttpStatus.OK)
                     .body(Collections.singletonMap("wallet",wallet));
@@ -45,12 +46,20 @@ public class WalletController {
     }
 
     @GetMapping("/{walletId}")
-    public ResponseEntity<List<Transaction>> getAllTransactions(@PathVariable Long walletId){
-        List<Transaction> transactionList = walletService.getAllTransactions(walletId);
-        Iterator<Transaction> i = transactionList.iterator();
-        while (i.hasNext()) {
-            System.out.println(i.next());
+    public ResponseEntity<Map<String,Object>> getAllTransactions(@PathVariable Long walletId){
+        Wallet wallet = walletService.getWallet(walletId);
+        return ResponseEntity.status(HttpStatus.OK).body(Collections.singletonMap("wallet",wallet));
+    }
+
+    @GetMapping("/walletData")
+    public ResponseEntity<Map<String,Object>> getWalletInfo(@RequestParam("id") Long accountId){
+        Wallet wallet = walletService.walletByAccountId(accountId);
+        if(wallet == null){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Collections.singletonMap("message","Invalid Account Id"));
+        }else{
+            return ResponseEntity.status(HttpStatus.OK)
+                    .body(Collections.singletonMap("wallet",wallet));
         }
-        return new ResponseEntity<>(transactionList, HttpStatus.OK);
     }
 }

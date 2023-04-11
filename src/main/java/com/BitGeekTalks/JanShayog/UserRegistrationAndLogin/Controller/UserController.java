@@ -53,7 +53,7 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.OK).body(map);
         }else{
             System.out.println("not found");
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Collections.singletonMap("message","not found"));
+            return ResponseEntity.status(HttpStatus.OK).body(Collections.singletonMap("message","not found"));
         }
     }
 

@@ -2,29 +2,25 @@ package com.BitGeekTalks.JanShayog.wallet.service;
 
 import com.BitGeekTalks.JanShayog.wallet.entity.Transaction;
 import com.BitGeekTalks.JanShayog.wallet.entity.Wallet;
-import com.BitGeekTalks.JanShayog.wallet.repo.TransactionRepository;
 import com.BitGeekTalks.JanShayog.wallet.repo.WalletRepo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class WalletService {
     @Autowired
     WalletRepo walletRepository;
 
-    @Autowired
-    TransactionRepository transactionRepository;
     public Wallet getWalletByAccountId(long id) {
         return walletRepository.findByAccountId(id);
     }
 
     public Wallet walletByAccountId(long accountId) {
         Wallet getWallet = getWalletByAccountId(accountId);
+        //System.out.println(getWallet);
         if(getWallet==null){
             Wallet wallet = new Wallet();
             wallet.setAccountId(1);
@@ -39,6 +35,7 @@ public class WalletService {
     }
 
     public Wallet performTransaction(Wallet wallet, double amount, String reason, boolean isDebit) {
+        //System.out.println(isDebit);
         // create a new transaction
         if(wallet.getBalance() <= 0 && isDebit){
             return null;
@@ -51,14 +48,16 @@ public class WalletService {
         transaction.setIsDebit(isDebit);
         transaction.setWalletId(wallet);
         // perform the transaction
-        wallet.performTransaction(transaction);
+        wallet.addTransaction(transaction);
 
         // update the wallet in the database
         return walletRepository.save(wallet);
     }
 
-    public List<Transaction> getAllTransactions(long walletId) {
-        List<Transaction> transactionsList = transactionRepository.findByWalletId(walletId);
-        return transactionsList;
+    public Wallet getWallet(long walletId){
+        Optional<Wallet> wallet = walletRepository.findById(walletId);
+        return wallet.orElse(null);
     }
+
+
 }

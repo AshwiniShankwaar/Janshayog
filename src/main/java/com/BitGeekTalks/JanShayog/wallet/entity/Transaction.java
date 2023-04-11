@@ -26,7 +26,7 @@ public class Transaction {
     private LocalTime time = LocalTime.now();
     private String reason;
     private boolean isDebit;
-    @OneToOne(fetch = FetchType.LAZY,cascade = CascadeType.ALL)
+    @ManyToOne(fetch = FetchType.LAZY,cascade = CascadeType.ALL)
     @JoinColumn(name = "walletId")
     @JsonIgnore
     private Wallet walletId;

@@ -1,9 +1,13 @@
 package com.BitGeekTalks.JanShayog.wallet.entity;
 
 import com.fasterxml.jackson.annotation.JsonIdentityInfo;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "wallet",uniqueConstraints = {
@@ -30,8 +34,9 @@ public class Wallet {
     private long accountId;
     @NotNull
     private double balance = 0.00;
-    @OneToOne(mappedBy = "walletId",cascade = CascadeType.ALL)
-    private Transaction transaction;
+    @OneToMany(mappedBy = "walletId", cascade = CascadeType.ALL,fetch = FetchType.EAGER)
+    private List<Transaction> transaction;
+
 
     @Override
     public String toString() {
@@ -43,11 +48,17 @@ public class Wallet {
                 '}';
     }
 
-    public void performTransaction(Transaction transaction) {
-        transaction.performTransaction(this);
-        this.setTransaction(transaction);
-        // update the wallet in the database
+    public void addTransaction(Transaction transactions) {
+        transactions.performTransaction(this);
+        transaction.add(transactions);
+        transactions.setWalletId(this);
     }
+
+    //    public void performTransaction(Transaction transaction) {
+//        transaction.performTransaction(this);
+//        this.setTransaction(transaction);
+//        // update the wallet in the database
+//    }
     public long getWalletId() {
         return walletId;
     }
@@ -72,18 +83,18 @@ public class Wallet {
         this.balance = balance;
     }
 
-    public Transaction getTransaction() {
+    public List<Transaction> getTransaction() {
         return transaction;
     }
 
-    public void setTransaction(Transaction transaction) {
+    public void setTransaction(List<Transaction> transaction) {
         this.transaction = transaction;
     }
 
     public Wallet() {
     }
 
-    public Wallet(long walletId, long accountId, double balance, Transaction transaction) {
+    public Wallet(long walletId, long accountId, double balance, List<Transaction> transaction) {
         this.walletId = walletId;
         this.accountId = accountId;
         this.balance = balance;
