@@ -33,7 +33,7 @@ public class Request {
     private LocalDate date = LocalDate.now();
     private LocalTime time = LocalTime.now();
     private String requestStatus;
-    //complete helperassignment underprocessing
+    //complete helperassignment underprocessing deleted
     @OneToOne(fetch = FetchType.LAZY, mappedBy = "requestId",cascade = CascadeType.ALL)
     private Payment payment;
 
