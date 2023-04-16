@@ -27,6 +27,10 @@ public class AccountCreationController {
     @Autowired
     private EmailService emailService;
 
+    @GetMapping("/")
+    public String check(){
+        return "Jan Shayog";
+    }
     @PostMapping("/changepassword")
     public ResponseEntity<String> changePassword(
             @RequestParam("id") long id,
