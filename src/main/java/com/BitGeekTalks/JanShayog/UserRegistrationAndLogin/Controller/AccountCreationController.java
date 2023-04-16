@@ -27,7 +27,7 @@ public class AccountCreationController {
     @Autowired
     private EmailService emailService;
 
-    @GetMapping("/")
+    @GetMapping("/test")
     public String check(){
         return "Jan Shayog";
     }
