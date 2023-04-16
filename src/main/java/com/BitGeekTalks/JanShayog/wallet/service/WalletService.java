@@ -23,7 +23,7 @@ public class WalletService {
         //System.out.println(getWallet);
         if(getWallet==null){
             Wallet wallet = new Wallet();
-            wallet.setAccountId(1);
+            wallet.setAccountId(accountId);
             wallet.setBalance(0.00);
 
             getWallet =createWallet(wallet);
