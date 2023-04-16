@@ -5,6 +5,8 @@ import com.BitGeekTalks.JanShayog.Request.entity.*;
 import com.BitGeekTalks.JanShayog.Request.repo.RequestCompleteRepo;
 import com.BitGeekTalks.JanShayog.Request.repo.RequestRepo;
 import com.BitGeekTalks.JanShayog.Request.repo.TaskRepo;
+import com.BitGeekTalks.JanShayog.wallet.entity.Wallet;
+import com.BitGeekTalks.JanShayog.wallet.service.WalletService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +23,8 @@ public class RequestService {
     @Autowired
     private TaskRepo taskRepo;
 
+    @Autowired
+    private WalletService walletService;
     @Autowired
     private RequestCompleteRepo requestCompleteRepo;
 
@@ -49,6 +53,14 @@ public class RequestService {
         payment.setRequestId(request);
         request.setPayment(payment);
 
+        //save the payment amount in the server account
+        Wallet wallet = walletService.walletByAccountId(request.getAccountId());
+        wallet = walletService.performTransaction(
+                wallet,request.getPayment().getAmount(),
+                "Amount for request id: " + request.getId(),true);
+        if(wallet==null){
+            return null;
+        }
         return requestRepo.save(request);
         //return SavedRequest;
     }
@@ -85,7 +97,7 @@ public class RequestService {
     public String deleteRequestByRequestId(long requestId){
         Request request = requestRepo.findById(requestId).orElse(null);
         if(request != null){
-            if(request.getHelperAssignments().size() > 0){
+            if(request.getHelperAssignments().size() <= 0){
                 request.setRequestStatus("deleted");
                 requestRepo.save(request);
                 return "Deleted";
@@ -99,7 +111,7 @@ public class RequestService {
     public String updateRequestStatus(RequestData requestData,long requestId){
         Request request = requestRepo.findById(requestId).orElse(null);
         if(request != null){
-            if(request.getHelperAssignments().size() > 0){
+            if(request.getHelperAssignments().size() <= 0 && !request.getRequestStatus().equals("deleted")){
                 request.getTaskId().setSkills(requestData.getSkills());
                 request.getTaskId().setTime(requestData.getTime());
                 request.getTaskId().setDate(requestData.getDate());
@@ -129,21 +141,37 @@ public class RequestService {
     }
     //change request state
     //request get into processing state one the limit of people is closed
+    public String checkHelperAlreadyAssignedInRequestById(Request request,long accountId){
+        for (HelperAssign h:request.getHelperAssignments()) {
+            if(h.getAccountId()==accountId){
+                return "available";
+            }else{
+                return "notAvailable";
+            }
+        }
+        return "notAvailable";
+    }
     public String addHelperToRequest(long requestId,long accountId){
         Request request = requestRepo.findById(requestId).orElse(null);
-        if(request!=null){
-            if(request.getHelperAssignments().size()<request.getTaskId().getNumberOfPeople()){
-                HelperAssign helperAssign = new HelperAssign();
-                helperAssign.setAccountId(accountId);
-                helperAssign.setRequestId(request);
-                request.addHelper(helperAssign);
-                if(request.getHelperAssignments().size()==request.getTaskId().getNumberOfPeople()-1){
-                    request.setRequestStatus("underProcessing");
+        if(request!=null &&
+                (!request.getRequestStatus().equals("deleted")
+                        &&!request.getRequestStatus().equals("completed"))){
+            if(checkHelperAlreadyAssignedInRequestById(request,accountId).equals("notAvailable")){
+                if(request.getHelperAssignments().size()<request.getTaskId().getNumberOfPeople()){
+                    HelperAssign helperAssign = new HelperAssign();
+                    helperAssign.setAccountId(accountId);
+                    helperAssign.setRequestId(request);
+                    request.addHelper(helperAssign);
+                    if(request.getHelperAssignments().size()==request.getTaskId().getNumberOfPeople()-1){
+                        request.setRequestStatus("underProcessing");
+                    }
+                    requestRepo.save(request);
+                    return "helper assigned";
+                }else{
+                    return "request is full";
                 }
-                requestRepo.save(request);
-                return "helper assigned";
             }else{
-                return "request is full";
+                return "Helper already assigned to this Task";
             }
         }
         return "request not found";
@@ -165,11 +193,18 @@ public class RequestService {
         return otp;
     }
 
+    public RequestComplete checkOtpGeneration(long requestId){
+        return requestCompleteRepo.findByRequestId(requestId);
+    }
     public String requestCompleteOtpGenerator(long requestId){
         Request request = requestRepo.findById(requestId).orElse(null);
         if(request!=null){
             //generate otp
-            RequestComplete rc = new RequestComplete();
+            RequestComplete rc = checkOtpGeneration(requestId);
+            if(rc!=null){
+                requestCompleteRepo.delete(rc);
+            }
+            rc = new RequestComplete();
             rc.setRequestId(requestId);
             rc.setOtp(generateOTP());
             rc = requestCompleteRepo.save(rc);
@@ -185,8 +220,15 @@ public class RequestService {
                 Request r = requestRepo.findById(requestId).orElse(null);
                 if(r!=null){
                     r = UpdateRequestCompleteStatus(requestId);
-                    //delete otp
-                    //perform payment
+                    if(r!=null){
+                        //delete otp
+                        requestCompleteRepo.delete(request);
+
+                        //perform payment
+                        return performPayment(r);
+                    }else{
+                        return "error while verifying otp";
+                    }
                 }else{
                     return "error while getting request";
                 }
@@ -201,5 +243,25 @@ public class RequestService {
 
     //perform payment
     //change complain state
-
+    public String performPayment(Request request){
+        List<HelperAssign> helperAssigns = request.getHelperAssignments();
+        double amount = request.getPayment().getAmount();
+        double amountPerPerson = amount/request.getTaskId().getNumberOfPeople();
+        Iterator<HelperAssign> i = helperAssigns.iterator();
+        while (i.hasNext()){
+            HelperAssign assign = i.next();
+            long accountId = assign.getAccountId();
+            Wallet wallet = walletService.getWalletByAccountId(accountId);
+            wallet = walletService.performTransaction(
+                    wallet,amountPerPerson,"payment for request id: "+request.getId(),false);
+            if(wallet==null){
+                return "Error paying account id "+accountId+" amount "+amountPerPerson;
+            }else{
+                amount = amount-amountPerPerson;
+            }
+        }
+        request.getPayment().setStatus("PAID");
+        request = requestRepo.save(request);
+        return "Payment for request id: "+request.getId()+" completed";
+    }
 }
