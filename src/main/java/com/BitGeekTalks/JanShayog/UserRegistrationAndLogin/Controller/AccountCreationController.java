@@ -29,7 +29,7 @@ public class AccountCreationController {
 
     @GetMapping("/test")
     public String check(){
-        return "Jan Shayog";
+        return "Welcome to JanShayog";
     }
     @PostMapping("/changepassword")
     public ResponseEntity<String> changePassword(
