@@ -2,7 +2,6 @@ HELP.md
 target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
-!**/src/main/resources/application.properties
 !**/src/test/**/target/
 
 ### STS ###
@@ -19,7 +18,7 @@ target/
 *.iws
 *.iml
 *.ipr
-
+.settings
 ### NetBeans ###
 /nbproject/private/
 /nbbuild/
