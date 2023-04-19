@@ -55,9 +55,11 @@ public class RequestService {
 
         //save the payment amount in the server account
         Wallet wallet = walletService.walletByAccountId(request.getAccountId());
+        System.out.println(wallet);
         wallet = walletService.performTransaction(
                 wallet,request.getPayment().getAmount(),
                 "Amount for request id: " + request.getId(),true);
+        System.out.println(wallet);
         if(wallet==null){
             return null;
         }
@@ -109,9 +111,12 @@ public class RequestService {
     }
     //update a request only till any helper is not joined
     public String updateRequestStatus(RequestData requestData,long requestId){
+//        System.out.println(requestData);
+//        System.out.println(requestId);
         Request request = requestRepo.findById(requestId).orElse(null);
         if(request != null){
             if(request.getHelperAssignments().size() <= 0 && !request.getRequestStatus().equals("deleted")){
+                String message = "";
                 request.getTaskId().setSkills(requestData.getSkills());
                 request.getTaskId().setTime(requestData.getTime());
                 request.getTaskId().setDate(requestData.getDate());
@@ -120,10 +125,44 @@ public class RequestService {
                 request.getTaskId().setTimePeriod(requestData.getTimePeriod());
                 request.getTaskId().setTitle(requestData.getTitle());
                 request.getTaskId().setDescription(requestData.getDescription());
-                request.getTaskId().setAmount(requestData.getPayableAmount());
-                request.getPayment().setAmount(requestData.getPayableAmount());
-                requestRepo.save(request);
-                return "Updated";
+                if(request.getTaskId().getAmount()!=requestData.getPayableAmount()){
+                    if(request.getTaskId().getAmount()<requestData.getPayableAmount()){
+//                        System.out.println("1"+(request.getTaskId().getAmount()<requestData.getPayableAmount()));
+                        Wallet wallet = walletService.walletByAccountId(request.getAccountId());
+//                        System.out.println(wallet);
+                        wallet = walletService.performTransaction(
+                                wallet, requestData.getPayableAmount()-request.getTaskId().getAmount(),
+                                "Amount for request id: " + request.getId(),true);
+//                        System.out.println(wallet);
+                        if(wallet==null){
+                            message = "amount not detected for updated request id: " + request.getId();
+                        }else{
+                            request.getTaskId().setAmount(requestData.getPayableAmount());
+                            request.getPayment().setAmount(requestData.getPayableAmount());
+                        }
+                    }else if(request.getTaskId().getAmount()>requestData.getPayableAmount()){
+//                        System.out.println("2"+(request.getTaskId().getAmount()>requestData.getPayableAmount()));
+                        Wallet wallet = walletService.walletByAccountId(request.getAccountId());
+//                        System.out.println(wallet);
+                        wallet = walletService.performTransaction(
+                                wallet, request.getTaskId().getAmount()-requestData.getPayableAmount(),
+                                "Amount for request id: " + request.getId(),false);
+//                        System.out.println(wallet);
+                        if(wallet==null){
+                            message = "amount not detected for updated request id: " + request.getId();
+                        }else{
+                            request.getTaskId().setAmount(requestData.getPayableAmount());
+                            request.getPayment().setAmount(requestData.getPayableAmount());
+                        }
+                    }
+                }
+
+                if(!message.equals("")){
+                    return message;
+                }else{
+                    requestRepo.save(request);
+                }
+                return "updated";
             }else{
                 return "can not update";
             }
@@ -131,8 +170,7 @@ public class RequestService {
         return "request not found";
     }
     //request get completed
-    public Request UpdateRequestCompleteStatus(long requestId){
-        Request request = requestRepo.findById(requestId).orElse(null);
+    public Request UpdateRequestCompleteStatus(Request request){
         if(request != null){
             request.setRequestStatus("completed");
             return requestRepo.save(request);
@@ -196,6 +234,7 @@ public class RequestService {
     public RequestComplete checkOtpGeneration(long requestId){
         return requestCompleteRepo.findByRequestId(requestId);
     }
+    //send a request for completing the request a otp will be send back to the user
     public String requestCompleteOtpGenerator(long requestId){
         Request request = requestRepo.findById(requestId).orElse(null);
         if(request!=null){
@@ -212,6 +251,8 @@ public class RequestService {
         }
         return "error while generating otp";
     }
+    //this will happen to the helper side as they will enter the otp generated on the end of the requester
+    //to make the request completed.
     public String requestComplete(long requestId, String Otp){
         RequestComplete request = requestCompleteRepo.findByRequestId(requestId);
         if(request!=null){
@@ -219,12 +260,15 @@ public class RequestService {
             if(request.getOtp().equals(Otp)){
                 Request r = requestRepo.findById(requestId).orElse(null);
                 if(r!=null){
-                    r = UpdateRequestCompleteStatus(requestId);
+                    r = UpdateRequestCompleteStatus(r);
                     if(r!=null){
                         //delete otp
                         requestCompleteRepo.delete(request);
 
                         //perform payment
+                        if(performPayment(r).equals("error")){
+                            return "error while processing payment";
+                        }
                         return performPayment(r);
                     }else{
                         return "error while verifying otp";
@@ -255,13 +299,19 @@ public class RequestService {
             wallet = walletService.performTransaction(
                     wallet,amountPerPerson,"payment for request id: "+request.getId(),false);
             if(wallet==null){
-                return "Error paying account id "+accountId+" amount "+amountPerPerson;
+                System.out.println("Error paying account id "+accountId+" amount "+amountPerPerson);
+                request.getPayment().setAmount(amount);
+                request.setHelperAssignments(helperAssigns);
+                requestRepo.save(request);
+                return "error";
             }else{
                 amount = amount-amountPerPerson;
+                i.remove();
             }
         }
         request.getPayment().setStatus("PAID");
         request = requestRepo.save(request);
-        return "Payment for request id: "+request.getId()+" completed";
+        System.out.println("Payment for request id: "+request.getId()+" completed");
+        return "paid";
     }
 }

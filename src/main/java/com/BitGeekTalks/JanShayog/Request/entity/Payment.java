@@ -1,5 +1,7 @@
 package com.BitGeekTalks.JanShayog.Request.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
 @Entity
@@ -27,6 +29,7 @@ public class Payment {
     //status can be paid unpaid underprocessing
     @OneToOne(fetch = FetchType.LAZY,cascade = CascadeType.ALL)
     @JoinColumn(name = "requestId")
+    @JsonIgnore
     private Request requestId;
 
     @Override
