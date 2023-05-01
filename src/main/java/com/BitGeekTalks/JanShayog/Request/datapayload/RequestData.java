@@ -17,6 +17,24 @@ public class RequestData {
     private boolean legal;
     private boolean agree;
 
+    @Override
+    public String toString() {
+        return "RequestData{" +
+                "accountId=" + accountId +
+                ", title='" + title + '\'' +
+                ", date=" + date +
+                ", time=" + time +
+                ", address='" + address + '\'' +
+                ", timePeriod='" + timePeriod + '\'' +
+                ", noPeople=" + noPeople +
+                ", skills='" + skills + '\'' +
+                ", payableAmount=" + payableAmount +
+                ", description='" + description + '\'' +
+                ", legal=" + legal +
+                ", agree=" + agree +
+                '}';
+    }
+
     public long getAccountId() {
         return accountId;
     }

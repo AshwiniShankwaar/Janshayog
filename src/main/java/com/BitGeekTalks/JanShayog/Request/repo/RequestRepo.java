@@ -10,7 +10,7 @@ import java.util.List;
 @Repository
 public interface RequestRepo extends JpaRepository<Request,Long> {
     Request findByTaskId(Task taskId);
-
+    List<Request> findByAccountId(long accountId);
     List<Request> findByAccountIdAndRequestStatus(long accountId,String requestStatus);
     List<Request> findByRequestStatus(String requestStatus);
 }

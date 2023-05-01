@@ -2,6 +2,7 @@ package com.BitGeekTalks.JanShayog.Request.service;
 
 import com.BitGeekTalks.JanShayog.Request.datapayload.RequestData;
 import com.BitGeekTalks.JanShayog.Request.entity.*;
+import com.BitGeekTalks.JanShayog.Request.repo.HelperAssignRepo;
 import com.BitGeekTalks.JanShayog.Request.repo.RequestCompleteRepo;
 import com.BitGeekTalks.JanShayog.Request.repo.RequestRepo;
 import com.BitGeekTalks.JanShayog.Request.repo.TaskRepo;
@@ -10,10 +11,10 @@ import com.BitGeekTalks.JanShayog.wallet.service.WalletService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Random;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.*;
 
 
 @Service
@@ -22,7 +23,8 @@ public class RequestService {
     private RequestRepo requestRepo;
     @Autowired
     private TaskRepo taskRepo;
-
+    @Autowired
+    private HelperAssignRepo helperAssignRepo;
     @Autowired
     private WalletService walletService;
     @Autowired
@@ -73,7 +75,12 @@ public class RequestService {
         List<Request> request = new ArrayList<Request>();
         while (iterator.hasNext()) {
             Request requestData = requestRepo.findByTaskId(iterator.next());
-            request.add(requestData);
+            LocalDateTime taskDateTime = LocalDateTime.of(requestData.getTaskId().getDate(), requestData.getTaskId().getTime());
+            if (taskDateTime.isAfter(LocalDateTime.now())&&!requestData.getRequestStatus().equals("deleted")) {
+                // task is before current date and time
+                request.add(requestData);
+            }
+
         }
         return request;
     }
@@ -86,10 +93,39 @@ public class RequestService {
                 .findByAccountIdAndRequestStatus(accountId,state);
         return requests;
     }
-
+    public Request getLatestRequestByAccountId(long accountId){
+        List<Request> requests = requestRepo.findByAccountId(accountId);
+        if(requests.size()==0){
+            return null;
+        }else{
+            //send the request that state is not deleted
+            Request latestRequest = null;
+            for (int i = requests.size()-1; i >= 0; i--) {
+                Request request = requests.get(i);
+                if (!request.getRequestStatus().equals("deleted")) {
+                    latestRequest = request;
+                    break;
+                }
+            }
+            return latestRequest;
+        }
+    }
     //get all requests under helperassignment state
     public List<Request> getRequestInHelperAssignmentState(){
-        return requestRepo.findByRequestStatus("helperAssignment");
+        List<Request> requests = requestRepo.findByRequestStatus("helperAssignment");
+        Iterator<Request> iterator = requests.iterator();
+        List<Request> requestData = new ArrayList<Request>();
+        while (iterator.hasNext()) {
+            Request request = iterator.next();
+            LocalDateTime taskDateTime = LocalDateTime.of(request.getTaskId().getDate(),
+                    request.getTaskId().getTime());
+            if (taskDateTime.isAfter(LocalDateTime.now())&&
+                    !request.getRequestStatus().equals("deleted")) {
+                // task is before current date and time
+                requestData.add(request);
+            }
+        }
+        return requestData;
     }
     //get request by request id
     public Request getRequestByRequestId(long requestId){
@@ -115,6 +151,7 @@ public class RequestService {
 //        System.out.println(requestId);
         Request request = requestRepo.findById(requestId).orElse(null);
         if(request != null){
+//            System.out.println(request);
             if(request.getHelperAssignments().size() <= 0 && !request.getRequestStatus().equals("deleted")){
                 String message = "";
                 request.getTaskId().setSkills(requestData.getSkills());
@@ -160,7 +197,8 @@ public class RequestService {
                 if(!message.equals("")){
                     return message;
                 }else{
-                    requestRepo.save(request);
+//                    System.out.println(request);
+                    System.out.println(requestRepo.save(request));
                 }
                 return "updated";
             }else{
@@ -172,7 +210,7 @@ public class RequestService {
     //request get completed
     public Request UpdateRequestCompleteStatus(Request request){
         if(request != null){
-            request.setRequestStatus("completed");
+            request.setRequestStatus("Completed");
             return requestRepo.save(request);
         }
         return null;
@@ -194,16 +232,20 @@ public class RequestService {
         if(request!=null &&
                 (!request.getRequestStatus().equals("deleted")
                         &&!request.getRequestStatus().equals("completed"))){
+            System.out.println("ok to go");
             if(checkHelperAlreadyAssignedInRequestById(request,accountId).equals("notAvailable")){
+                System.out.println("not available");
                 if(request.getHelperAssignments().size()<request.getTaskId().getNumberOfPeople()){
+                    System.out.println("open");
                     HelperAssign helperAssign = new HelperAssign();
                     helperAssign.setAccountId(accountId);
                     helperAssign.setRequestId(request);
                     request.addHelper(helperAssign);
-                    if(request.getHelperAssignments().size()==request.getTaskId().getNumberOfPeople()-1){
+                    if(request.getHelperAssignments().size()==request.getTaskId().getNumberOfPeople()){
                         request.setRequestStatus("underProcessing");
                     }
-                    requestRepo.save(request);
+                    System.out.println(request.getHelperAssignments().size()+" "+(request.getTaskId().getNumberOfPeople()));
+                    System.out.println(requestRepo.save(request));
                     return "helper assigned";
                 }else{
                     return "request is full";
@@ -217,6 +259,65 @@ public class RequestService {
     //request get into complete state
     //conform request complete by generating otp
 
+    public String removeHelperFromRequest(long requestId, long accountId) {
+        Request request = getRequestByRequestId(requestId);
+        List<HelperAssign> list = request.getHelperAssignments();
+        Iterator<HelperAssign> i = list.iterator();
+        while (i.hasNext()) {
+            HelperAssign helperAssign = i.next();
+            if (helperAssign.getAccountId() == accountId) {
+                i.remove();
+                request.setHelperAssignments(list);
+                requestRepo.save(request);
+                helperAssignRepo.deleteById(helperAssign.getId());
+
+                return "helper removed";
+            }
+        }
+        return "helper not joined";
+    }
+
+    public List<Request> getRequestForHelper(long accountId,String state){
+//        List<HelperAssign> l = helperAssignRepo.findByAccountId(accountId);
+        List<Request> l = helperAssignRepo.findRequestsByHelperId(accountId);
+        Iterator<Request> i = l.iterator();
+        List<Request> requests = new ArrayList<Request>();
+        while (i.hasNext()){
+            Request request = i.next();
+            if(request.getRequestStatus().equals(state)){
+                requests.add(request);
+            }
+        }
+        return requests;
+    }
+
+    public Request getLatestRequestForHelper(long accountId){
+        List<Request> l = helperAssignRepo.findRequestsByHelperId(accountId);
+        Iterator<Request> i = l.iterator();
+        Request request = null;
+        while (i.hasNext()){
+            request = i.next();
+            if(!request.getRequestStatus().equals("deleted")){
+                break;
+            }
+        }
+        return request;
+    }
+//get complete request by helperid
+//public List<Request> getCompletedRequestForHelper(long accountId){
+////        List<HelperAssign> l = helperAssignRepo.findByAccountId(accountId);
+//    List<Request> l = helperAssignRepo.findRequestsByHelperId(accountId);
+//    Iterator<Request> i = l.iterator();
+//    List<Request> requests = new ArrayList<Request>();
+//    while (i.hasNext()){
+//        Request request = i.next();
+//        if(request.getRequestStatus().equals("Completed")){
+//            requests.add(request);
+//        }
+//    }
+//    return requests;
+//}
+    //get latest request by helperid
     public String generateOTP() {
         // Define the length of the OTP
         int length = 6;
@@ -254,13 +355,19 @@ public class RequestService {
     //this will happen to the helper side as they will enter the otp generated on the end of the requester
     //to make the request completed.
     public String requestComplete(long requestId, String Otp){
+        System.out.println(
+                requestId+" "+Otp
+        );
         RequestComplete request = requestCompleteRepo.findByRequestId(requestId);
         if(request!=null){
             //generate otp
+            System.out.println(request.toString());
             if(request.getOtp().equals(Otp)){
                 Request r = requestRepo.findById(requestId).orElse(null);
+                System.out.println(r.toString());
                 if(r!=null){
                     r = UpdateRequestCompleteStatus(r);
+                    System.out.println(r);
                     if(r!=null){
                         //delete otp
                         requestCompleteRepo.delete(request);

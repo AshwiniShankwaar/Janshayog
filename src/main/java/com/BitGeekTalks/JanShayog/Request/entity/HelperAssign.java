@@ -33,7 +33,7 @@ public class HelperAssign {
     private LocalDate date = LocalDate.now();
     private LocalTime time = LocalTime.now();
 
-    @ManyToOne(fetch = FetchType.LAZY,cascade = CascadeType.ALL)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "requestId")
     @JsonIgnore
     private Request requestId;
