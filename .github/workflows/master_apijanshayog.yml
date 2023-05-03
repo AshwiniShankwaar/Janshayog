@@ -24,8 +24,9 @@ jobs:
       - name: Build with Maven
         run: mvn clean install
         
-      - name: Delete Artifact
-        uses: GeekyEggo/delete-artifact@v2.0.0
+      - name: delete-run-artifacts
+        uses: christian-korneck/delete-run-artifacts-action@v1
+
 
 
       - name: Upload artifact for deployment job
