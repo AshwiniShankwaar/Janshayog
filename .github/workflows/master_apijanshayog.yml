@@ -25,9 +25,9 @@ jobs:
         run: mvn clean install
         
       - name: delete-run-artifacts
-        uses: christian-korneck/delete-run-artifacts-action@v1
-
-
+        uses: geekyeggo/delete-artifact@v1
+        with:
+            name: java-app
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v2
